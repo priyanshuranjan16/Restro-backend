@@ -60,6 +60,11 @@ router.post('/signup', [
     .withMessage('Please provide a valid phone number')
     .trim(),
   
+  body('role')
+    .optional()
+    .isIn(['waiter', 'cashier', 'admin'])
+    .withMessage('Role must be one of: waiter, cashier, admin'),
+  
   validate
 ], async (req, res) => {
   try {
@@ -70,7 +75,8 @@ router.post('/signup', [
       password,
       businessName,
       businessType,
-      phone
+      phone,
+      role
     } = req.body;
 
     // Check if user already exists
@@ -89,7 +95,8 @@ router.post('/signup', [
       password,
       businessName,
       businessType,
-      phone
+      phone,
+      role: role || 'waiter' // Default to waiter if not provided
     });
 
     await user.save();
@@ -149,10 +156,15 @@ router.post('/login', [
     .notEmpty()
     .withMessage('Password is required'),
   
+  body('role')
+    .optional()
+    .isIn(['waiter', 'cashier', 'admin'])
+    .withMessage('Role must be one of: waiter, cashier, admin'),
+  
   validate
 ], async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
     // Find user by email and include password for comparison
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
@@ -175,6 +187,13 @@ router.post('/login', [
     if (!isPasswordValid) {
       return res.status(401).json({
         error: 'Invalid credentials'
+      });
+    }
+
+    // If role is provided in login, verify it matches user's role
+    if (role && user.role !== role) {
+      return res.status(403).json({
+        error: 'Role mismatch. Please select the correct role.'
       });
     }
 
@@ -206,7 +225,7 @@ router.post('/login', [
 router.get('/me', auth, async (req, res) => {
   try {
     res.json({
-      user: req.user
+      user: req.user.getPublicProfile()
     });
   } catch (error) {
     console.error('Get profile error:', error);

@@ -62,8 +62,9 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['owner', 'manager', 'staff'],
-    default: 'owner'
+    enum: ['waiter', 'cashier', 'admin'],
+    required: [true, 'Role is required'],
+    default: 'waiter'
   }
 }, {
   timestamps: true,
@@ -89,6 +90,8 @@ userSchema.virtual('businessInfo').get(function() {
 userSchema.index({ email: 1 });
 userSchema.index({ businessName: 1 });
 userSchema.index({ businessType: 1 });
+userSchema.index({ role: 1 }); // Index for role-based queries
+userSchema.index({ role: 1, isActive: 1 }); // Compound index for active users by role
 
 // Pre-save middleware to hash password
 userSchema.pre('save', async function(next) {
@@ -114,12 +117,22 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   }
 };
 
-// Instance method to get public profile
+// Instance method to get public profile (matches frontend expectations)
 userSchema.methods.getPublicProfile = function() {
-  const userObject = this.toObject();
-  delete userObject.password;
-  delete userObject.__v;
-  return userObject;
+  return {
+    id: this._id.toString(),
+    email: this.email,
+    firstName: this.firstName,
+    lastName: this.lastName,
+    role: this.role,
+    businessName: this.businessName,
+    businessType: this.businessType,
+    phone: this.phone,
+    isActive: this.isActive,
+    emailVerified: this.emailVerified,
+    createdAt: this.createdAt,
+    updatedAt: this.updatedAt
+  };
 };
 
 // Static method to find user by email

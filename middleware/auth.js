@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { hasPermission, hasAnyPermission, hasAllPermissions } = require('../config/permissions');
 
 const auth = async (req, res, next) => {
   try {
@@ -94,4 +95,54 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { auth, optionalAuth, authorize };
+// Permission-based authorization middleware
+const requirePermission = (...permissions) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ 
+        error: 'Authentication required.' 
+      });
+    }
+
+    // Check if user has any of the required permissions
+    if (!hasAnyPermission(req.user.role, permissions)) {
+      return res.status(403).json({ 
+        error: 'Access denied. Insufficient permissions.',
+        required: permissions,
+        userRole: req.user.role
+      });
+    }
+
+    next();
+  };
+};
+
+// Require all specified permissions
+const requireAllPermissions = (...permissions) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ 
+        error: 'Authentication required.' 
+      });
+    }
+
+    // Check if user has all of the required permissions
+    if (!hasAllPermissions(req.user.role, permissions)) {
+      return res.status(403).json({ 
+        error: 'Access denied. Insufficient permissions.',
+        required: permissions,
+        userRole: req.user.role
+      });
+    }
+
+    next();
+  };
+};
+
+module.exports = { 
+  auth, 
+  optionalAuth, 
+  authorize, 
+  requirePermission, 
+  requireAllPermissions 
+};
